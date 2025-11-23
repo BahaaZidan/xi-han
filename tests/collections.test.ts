@@ -83,6 +83,9 @@ const parseMoveResponse = async (res: Response): Promise<MoveResponse> => {
   return body;
 };
 
+const isPostgresError = (error: unknown): error is { code: string } =>
+  Boolean(error && typeof error === 'object' && 'code' in error && typeof (error as Record<string, unknown>).code === 'string');
+
 const resetDb = async () => {
   await pgClient`TRUNCATE TABLE collection_items RESTART IDENTITY CASCADE`;
   await pgClient`TRUNCATE TABLE collections RESTART IDENTITY CASCADE`;
@@ -172,6 +175,31 @@ describe('Collections API', () => {
     expect(sixth.status).toBe(400);
     const body = await sixth.json();
     expect(body.error).toBeDefined();
+  });
+
+  it('enforces the 5-item limit at the database layer', async () => {
+    const collectionRes = await app.request('/collections', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ name: 'DB Limit' }),
+    });
+    const collection = await parseCollection(collectionRes);
+
+    for (let i = 0; i < 5; i += 1) {
+      await pgClient`insert into collection_items (collection_id, item_id) values (${collection.id}, ${`raw-${i}`})`;
+    }
+
+    let caught: unknown;
+    try {
+      await pgClient`insert into collection_items (collection_id, item_id) values (${collection.id}, 'overflow')`;
+    } catch (error) {
+      caught = error;
+    }
+
+    expect(caught).toBeTruthy();
+    if (isPostgresError(caught)) {
+      expect(caught.code).toBe('P0001');
+    }
   });
 
   it('moves items atomically between collections', async () => {

@@ -7,6 +7,7 @@
     "dev": "bun run src/server.ts",
     "start": "bun run src/server.ts",
     "test": "bun test",
+    "typecheck": "tsc --noEmit",
     "migrate": "drizzle-kit migrate",
     "generate": "drizzle-kit generate"
   },
@@ -20,6 +21,7 @@
   "devDependencies": {
     "@types/node": "^20.12.8",
     "bun-types": "^1.1.9",
-    "drizzle-kit": "^0.31.7"
+    "drizzle-kit": "^0.31.7",
+    "typescript": "^5.9.3"
   }
 }

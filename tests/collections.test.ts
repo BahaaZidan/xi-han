@@ -11,6 +11,78 @@ const otherUserHeaders = {
   'X-User-ID': 'other-user',
 };
 
+type CollectionResponse = {
+  id: number;
+  name: string;
+  description: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+type CollectionListItem = CollectionResponse & {
+  itemCount: number;
+  relevanceScore: number;
+};
+
+type MoveResponse = { success: boolean };
+
+const isCollectionResponse = (value: unknown): value is CollectionResponse => {
+  if (!value || typeof value !== 'object') return false;
+  const candidate = value as Record<string, unknown>;
+  return (
+    typeof candidate.id === 'number' &&
+    typeof candidate.name === 'string' &&
+    (candidate.description === null || typeof candidate.description === 'string') &&
+    typeof candidate.createdAt === 'string' &&
+    typeof candidate.updatedAt === 'string'
+  );
+};
+
+const isCollectionListItem = (value: unknown): value is CollectionListItem => {
+  if (!value || typeof value !== 'object') return false;
+  const candidate = value as Record<string, unknown>;
+  return (
+    isCollectionResponse(value) &&
+    typeof candidate.itemCount === 'number' &&
+    typeof candidate.relevanceScore === 'number'
+  );
+};
+
+const isMoveResponse = (value: unknown): value is MoveResponse =>
+  Boolean(value && typeof value === 'object' && typeof (value as Record<string, unknown>).success === 'boolean');
+
+const findCollection = (list: CollectionListItem[], id: number): CollectionListItem => {
+  const found = list.find((item) => item.id === id);
+  if (!found) {
+    throw new Error(`Collection with id ${id} not found in list`);
+  }
+  return found;
+};
+
+const parseCollection = async (res: Response): Promise<CollectionResponse> => {
+  const body = await res.json();
+  if (!isCollectionResponse(body)) {
+    throw new Error('Unexpected collection response shape');
+  }
+  return body;
+};
+
+const parseCollectionList = async (res: Response): Promise<CollectionListItem[]> => {
+  const body = await res.json();
+  if (!Array.isArray(body) || !body.every(isCollectionListItem)) {
+    throw new Error('Unexpected collections list shape');
+  }
+  return body;
+};
+
+const parseMoveResponse = async (res: Response): Promise<MoveResponse> => {
+  const body = await res.json();
+  if (!isMoveResponse(body)) {
+    throw new Error('Unexpected move response shape');
+  }
+  return body;
+};
+
 const resetDb = async () => {
   await pgClient`TRUNCATE TABLE collection_items RESTART IDENTITY CASCADE`;
   await pgClient`TRUNCATE TABLE collections RESTART IDENTITY CASCADE`;
@@ -39,7 +111,7 @@ describe('Collections API', () => {
       body: JSON.stringify({ name: 'My List' }),
     });
 
-    const secondBody = await second.json();
+    const secondBody = await parseCollection(second);
     expect(second.status).toBe(201);
     expect(secondBody.name).toBe('My List (1)');
   });
@@ -61,9 +133,9 @@ describe('Collections API', () => {
       body: JSON.stringify({ name: 'Shared Name' }),
     });
 
-    const firstBody = await first.json();
-    const secondBody = await second.json();
-    const thirdBody = await third.json();
+    const firstBody = await parseCollection(first);
+    const secondBody = await parseCollection(second);
+    const thirdBody = await parseCollection(third);
 
     expect(first.status).toBe(201);
     expect(second.status).toBe(201);
@@ -80,7 +152,7 @@ describe('Collections API', () => {
       body: JSON.stringify({ name: 'Limited' }),
     });
 
-    const collectionBody = await collection.json();
+    const collectionBody = await parseCollection(collection);
 
     for (let i = 0; i < 5; i += 1) {
       const res = await app.request(`/collections/${collectionBody.id}/items`, {
@@ -114,8 +186,8 @@ describe('Collections API', () => {
       body: JSON.stringify({ name: 'Target' }),
     });
 
-    const source = await sourceRes.json();
-    const target = await targetRes.json();
+    const source = await parseCollection(sourceRes);
+    const target = await parseCollection(targetRes);
 
     const add = await app.request(`/collections/${source.id}/items`, {
       method: 'POST',
@@ -135,14 +207,14 @@ describe('Collections API', () => {
     });
 
     expect(move.status).toBe(200);
-    const moveBody = await move.json();
+    const moveBody = await parseMoveResponse(move);
     expect(moveBody.success).toBe(true);
 
-    const list = await app.request('/collections', { method: 'GET', headers });
-    const collectionsList = await list.json();
+    const listResponse = await app.request('/collections', { method: 'GET', headers });
+    const collectionsList = await parseCollectionList(listResponse);
 
-    const updatedSource = collectionsList.find((c: any) => c.id === source.id);
-    const updatedTarget = collectionsList.find((c: any) => c.id === target.id);
+    const updatedSource = findCollection(collectionsList, source.id);
+    const updatedTarget = findCollection(collectionsList, target.id);
 
     expect(updatedSource.itemCount).toBe(0);
     expect(updatedTarget.itemCount).toBe(1);
@@ -150,16 +222,19 @@ describe('Collections API', () => {
   });
 
   it('rejects move into full target and leaves source untouched', async () => {
-    const source = await app.request('/collections', {
+    const sourceResponse = await app.request('/collections', {
       method: 'POST',
       headers,
       body: JSON.stringify({ name: 'Source' }),
-    }).then((r) => r.json());
-    const target = await app.request('/collections', {
+    });
+    const targetResponse = await app.request('/collections', {
       method: 'POST',
       headers,
       body: JSON.stringify({ name: 'Full Target' }),
-    }).then((r) => r.json());
+    });
+
+    const source = await parseCollection(sourceResponse);
+    const target = await parseCollection(targetResponse);
 
     for (let i = 0; i < 5; i += 1) {
       const res = await app.request(`/collections/${target.id}/items`, {
@@ -189,20 +264,22 @@ describe('Collections API', () => {
 
     expect(move.status).toBe(400);
 
-    const list = await app.request('/collections', { method: 'GET', headers }).then((r) => r.json());
-    const updatedSource = list.find((c: any) => c.id === source.id);
-    const updatedTarget = list.find((c: any) => c.id === target.id);
+    const listResponse = await app.request('/collections', { method: 'GET', headers });
+    const list = await parseCollectionList(listResponse);
+    const updatedSource = findCollection(list, source.id);
+    const updatedTarget = findCollection(list, target.id);
 
     expect(updatedSource.itemCount).toBe(1);
     expect(updatedTarget.itemCount).toBe(5);
   });
 
   it('prevents duplicate items on concurrent adds', async () => {
-    const collection = await app.request('/collections', {
+    const collectionResponse = await app.request('/collections', {
       method: 'POST',
       headers,
       body: JSON.stringify({ name: 'Concurrent' }),
-    }).then((r) => r.json());
+    });
+    const collection = await parseCollection(collectionResponse);
 
     const [first, second] = await Promise.all([
       app.request(`/collections/${collection.id}/items`, {
@@ -220,14 +297,17 @@ describe('Collections API', () => {
     const statuses = [first.status, second.status].sort();
     expect(statuses).toEqual([201, 409]);
 
-    const list = await app.request('/collections', { method: 'GET', headers }).then((r) => r.json());
-    const updated = list.find((c: any) => c.id === collection.id);
+    const listResponse = await app.request('/collections', { method: 'GET', headers });
+    const list = await parseCollectionList(listResponse);
+    const updated = findCollection(list, collection.id);
     expect(updated.itemCount).toBe(1);
   });
 
   it('orders collections by relevance then recency', async () => {
-    const create = (name: string) =>
-      app.request('/collections', { method: 'POST', headers, body: JSON.stringify({ name }) }).then((r) => r.json());
+    const create = async (name: string) => {
+      const res = await app.request('/collections', { method: 'POST', headers, body: JSON.stringify({ name }) });
+      return parseCollection(res);
+    };
 
     const first = await create('First');
     await app.request(`/collections/${first.id}/items`, {
@@ -254,8 +334,9 @@ describe('Collections API', () => {
       body: JSON.stringify({ itemId: 'c', note: 'note' }),
     });
 
-    const list = await app.request('/collections', { method: 'GET', headers }).then((r) => r.json());
-    const namesInOrder = list.map((c: any) => c.name);
+    const listResponse = await app.request('/collections', { method: 'GET', headers });
+    const list = await parseCollectionList(listResponse);
+    const namesInOrder = list.map((c) => c.name);
 
     expect(namesInOrder.slice(0, 3)).toEqual(['Third', 'First', 'Second']);
   });

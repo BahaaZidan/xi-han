@@ -1,0 +1,18 @@
+{
+  "useTabs": true,
+  "singleQuote": false,
+  "trailingComma": "es5",
+  "printWidth": 100,
+  "htmlWhitespaceSensitivity": "ignore",
+  "plugins": ["@ianvs/prettier-plugin-sort-imports"],
+  "importOrder": [
+    "^@",
+    "<THIRD_PARTY_MODULES>",
+    "",
+    "^\\$(?!lib/)",
+    "",
+    "^\\$lib/",
+    "",
+    "^[.]"
+  ]
+}

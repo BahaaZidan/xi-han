@@ -8,6 +8,7 @@
     "start": "bun run src/server.ts",
     "test": "bun test",
     "typecheck": "tsc --noEmit",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md,css,scss,html,yml,yaml}\"",
     "migrate": "drizzle-kit migrate",
     "generate": "drizzle-kit generate"
   },
@@ -19,9 +20,11 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@ianvs/prettier-plugin-sort-imports": "^4.7.0",
     "@types/node": "^20.12.8",
     "bun-types": "^1.1.9",
     "drizzle-kit": "^0.31.7",
+    "prettier": "^3.6.2",
     "typescript": "^5.9.3"
   }
 }

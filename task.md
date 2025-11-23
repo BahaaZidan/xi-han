@@ -47,7 +47,7 @@ Design a schema that supports the following:
 - **Header**: `X-User-ID` (string)
 - **Body**: `{ "name": string, "description"?: string }`
 - **Behavior**:
-    - To prevent duplicates without annoying the user, automatically handle name collisions by appending a counter (e.g., "My List" -> "My List (1)").
+  - To prevent duplicates without annoying the user, automatically handle name collisions by appending a counter (e.g., "My List" -> "My List (1)").
 - **Response**: HTTP 201 (Returns the created object)
 
 ### 2. Add Item to Collection
@@ -57,8 +57,8 @@ Design a schema that supports the following:
 - **Header**: `X-User-ID` (string)
 - **Body**: `{ "itemId": string, "note"?: string }`
 - **Behavior**:
-    - Adds an item to the collection.
-    - Validation: Ensure the collection isn't full and the item doesn't already exist in it.
+  - Adds an item to the collection.
+  - Validation: Ensure the collection isn't full and the item doesn't already exist in it.
 - **Response**: HTTP 201
 
 ### 3. Move Item
@@ -68,8 +68,8 @@ Design a schema that supports the following:
 - **Header**: `X-User-ID` (string)
 - **Body**: `{ "itemId": string, "sourceCollectionId": number, "targetCollectionId": number }`
 - **Behavior**:
-    - Moves an item from one collection to another.
-    - This operation must be safe and atomic. If the target is full, the move fails, and the item stays where it was.
+  - Moves an item from one collection to another.
+  - This operation must be safe and atomic. If the target is full, the move fails, and the item stays where it was.
 - **Response**: HTTP 200 `{ "success": true }`
 
 ### 4. List Collections
@@ -78,10 +78,10 @@ Design a schema that supports the following:
 
 - **Header**: `X-User-ID` (string)
 - **Behavior**:
-    - Returns all collections for the user.
-    - **Sorting**: Users want to see their "most valuable" collections first. A collection's value is calculated by summing the value of its items:
-        - Items with a meaningful note are worth **2 points**.
-        - Items without a note are worth **1 point**.
+  - Returns all collections for the user.
+  - **Sorting**: Users want to see their "most valuable" collections first. A collection's value is calculated by summing the value of its items:
+    - Items with a meaningful note are worth **2 points**.
+    - Items without a note are worth **1 point**.
 - **Response**: HTTP 200 (List of collections with their computed `relevanceScore` and `itemCount`)
 
 ## Technical Expectations

@@ -1,5 +1,5 @@
 export type AppBindings = {
-  Variables: {
-    userId: string;
-  };
+	Variables: {
+		userId: string;
+	};
 };

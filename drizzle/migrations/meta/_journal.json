@@ -1,20 +1,20 @@
 {
-  "version": "7",
-  "dialect": "postgresql",
-  "entries": [
-    {
-      "idx": 0,
-      "version": "7",
-      "when": 1763888239289,
-      "tag": "0000_mean_mandrill",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1763889000000,
-      "tag": "0001_collection_item_limit",
-      "breakpoints": false
-    }
-  ]
+	"version": "7",
+	"dialect": "postgresql",
+	"entries": [
+		{
+			"idx": 0,
+			"version": "7",
+			"when": 1763888239289,
+			"tag": "0000_mean_mandrill",
+			"breakpoints": true
+		},
+		{
+			"idx": 1,
+			"version": "7",
+			"when": 1763889000000,
+			"tag": "0001_collection_item_limit",
+			"breakpoints": false
+		}
+	]
 }

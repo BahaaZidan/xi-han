@@ -1,0 +1,22 @@
+# Dependencies
+node_modules
+
+# Builds and caches
+dist
+.cache
+.turbo
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+bun-debug.log*
+
+# Env
+.env
+.env.*
+!.env.example
+
+# OS files
+.DS_Store

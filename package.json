@@ -1,0 +1,25 @@
+{
+  "name": "smart-collections-api",
+  "version": "1.0.0",
+  "description": "Collections API using Bun, Hono, Drizzle, and PostgreSQL",
+  "type": "module",
+  "scripts": {
+    "dev": "bun run src/server.ts",
+    "start": "bun run src/server.ts",
+    "test": "bun test",
+    "migrate": "drizzle-kit migrate",
+    "generate": "drizzle-kit generate"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "drizzle-orm": "^0.44.7",
+    "hono": "^4.5.6",
+    "postgres": "^3.4.4",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^20.12.8",
+    "bun-types": "^1.1.9",
+    "drizzle-kit": "^0.31.7"
+  }
+}

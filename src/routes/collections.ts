@@ -3,7 +3,7 @@ import { HTTPException } from 'hono/http-exception';
 import { z } from 'zod';
 import { db } from '../db';
 import { collections, collectionItems, users } from '../schema';
-import { and, count, desc, eq, sql } from 'drizzle-orm';
+import { and, desc, eq, sql } from 'drizzle-orm';
 import type { AppBindings } from '../types';
 import type { PostgresError } from 'postgres';
 
@@ -37,12 +37,19 @@ const ensureUserExists = async (userId: string) => {
 
 const formatError = (message: string) => ({ error: message });
 
-const isUniqueViolation = (error: unknown) =>
-  Boolean((error as PostgresError)?.code === '23505');
+const getPgError = (error: unknown): PostgresError | undefined => {
+  if (!error || typeof error !== 'object') return undefined;
+  const direct = error as PostgresError;
+  const caused = (error as { cause?: PostgresError }).cause;
+  return direct?.code ? direct : caused?.code ? caused : undefined;
+};
 
-const isLimitViolation = (error: unknown) =>
-  typeof (error as PostgresError)?.message === 'string' &&
-  (error as PostgresError).message.toLowerCase().includes('limit reached');
+const isUniqueViolation = (error: unknown) => getPgError(error)?.code === '23505';
+
+const isLimitViolation = (error: unknown) => {
+  const message = getPgError(error)?.message;
+  return typeof message === 'string' && message.toLowerCase().includes('limit reached');
+};
 
 router.post('/', async (c) => {
   const userId = c.get('userId');
@@ -125,14 +132,13 @@ router.post('/:id/items', async (c) => {
         throw new HTTPException(409, { message: 'Item already exists in collection' });
       }
 
-      const [{ value: itemCount }] =
-        (await tx
-          .select({ value: count() })
-          .from(collectionItems)
-          .where(eq(collectionItems.collectionId, id))
-          .for('update')) ?? [];
+      const lockedItems = await tx
+        .select({ id: collectionItems.id })
+        .from(collectionItems)
+        .where(eq(collectionItems.collectionId, id))
+        .for('update');
 
-      if ((itemCount ?? 0) >= MAX_ITEMS_PER_COLLECTION) {
+      if (lockedItems.length >= MAX_ITEMS_PER_COLLECTION) {
         throw new HTTPException(400, { message: 'Collection is full' });
       }
 
@@ -212,14 +218,13 @@ router.put('/move-item', async (c) => {
         throw new HTTPException(404, { message: 'Item not found in source collection' });
       }
 
-      const [{ value: targetCount }] =
-        (await tx
-          .select({ value: count() })
-          .from(collectionItems)
-          .where(eq(collectionItems.collectionId, parsedBody.targetCollectionId))
-          .for('update')) ?? [];
+      const lockedTargetItems = await tx
+        .select({ id: collectionItems.id })
+        .from(collectionItems)
+        .where(eq(collectionItems.collectionId, parsedBody.targetCollectionId))
+        .for('update');
 
-      if ((targetCount ?? 0) >= MAX_ITEMS_PER_COLLECTION) {
+      if (lockedTargetItems.length >= MAX_ITEMS_PER_COLLECTION) {
         throw new HTTPException(400, { message: 'Target collection is full' });
       }
 
@@ -303,7 +308,13 @@ router.get('/', async (c) => {
     )
     .orderBy(desc(relevanceExpr), desc(collections.createdAt));
 
-  return c.json(results);
+  return c.json(
+    results.map((row) => ({
+      ...row,
+      itemCount: Number(row.itemCount),
+      relevanceScore: Number(row.relevanceScore),
+    })),
+  );
 });
 
 export { router as collectionsRouter };
